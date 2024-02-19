@@ -12,7 +12,7 @@ Clone the Repository:
 
 bash
 Copy code
-git clone https://github.com/yourusername/repo-name.git
+git clone https://github.com/mateuzin/Peg-Solitaire-game
 cd repo-name
 Run the Server:
 
