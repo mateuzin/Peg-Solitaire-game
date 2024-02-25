@@ -2,7 +2,6 @@ import sys
 import threading
 import socket
 import tkinter as tk
-from tkinter import simpledialog
 
 def start_client(ip, port, nickname):
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -12,7 +11,7 @@ def start_client(ip, port, nickname):
         while True:
             try:
                 message = client.recv(1024).decode('utf-8')
-                if message == 'NOME':
+                if message == 'MOVE':
                     client.send(nickname.encode('utf-8'))
                 else:
                     print(message)

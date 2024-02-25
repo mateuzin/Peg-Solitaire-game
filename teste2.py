@@ -17,9 +17,6 @@ class RestaUm:
 
         # Variáveis
         self.selected_ball = None
-        self.PLAYER_1 = 1
-        self.PLAYER_2 = 2
-        self.current_player = self.PLAYER_1  # Começa com o Jogador 1
         self.is_local_turn = False
         self.send_movement = None
 
@@ -47,7 +44,7 @@ class RestaUm:
 
         self.ip = "192.168.15.100"
         self.port = 55555
-        self.nickname = "MATEUS"
+        self.nickname = "Andre"
         self.client = None
 
     def draw_board(self):
@@ -165,18 +162,23 @@ class RestaUm:
         def receive():
             while True:
                 try:
-                    move = self.client.recv(1024).decode('utf-8')
-                    if move == 'NOME':
-                        self.client.send(self.nickname.encode('utf-8'))
-                    else:
-                        move_data = pickle.loads(move)
-                        src_col = move_data['src_col']
-                        src_row = move_data['src_row']
-                        dest_col = move_data['dest_col']
-                        dest_row = move_data['dest_row']
+                    move = self.client.recv(4096)
+                    match move:
+                        case b'FIRST_CLIENT':
+                            print("Você é o primeiro cliente. is_local_turn definido como True.")
+                            self.is_local_turn = True
+                            print(self.is_local_turn)
+                        case b'MOVE':
+                            self.client.send(self.nickname.encode('utf-8'))
+                        case _:
+                            move_data = pickle.loads(move)
+                            src_col = move_data['src_col']
+                            src_row = move_data['src_row']
+                            col = move_data['col']
+                            row = move_data['row']
 
-                        received_moves = [(src_row, src_col, dest_row, dest_col)]
-                        self.updateBoard(received_moves)
+                            received_moves = [(src_row, src_col, row, col)]
+                            self.updateBoard(received_moves)
 
                 except Exception as e:
                     print(f'Erro ao receber do servidor: {e}')
@@ -186,14 +188,15 @@ class RestaUm:
         def write():
             while True:
                 try:
-                    move_data = {
-                        'src_col': self.send_movement[0],
-                        'src_row': self.send_movement[1],
-                        'dest_col': self.send_movement[2],
-                        'dest_row': self.send_movement[3],
-                    }
-                    move = pickle.dumps(move_data)
-                    self.client.send(move.encode('utf-8'))
+                    if self.send_movement is not None:
+                        move_data = {
+                            'src_col': self.send_movement[0],
+                            'src_row': self.send_movement[1],
+                            'col': self.send_movement[2],
+                            'row': self.send_movement[3],
+                        }
+                        move = pickle.dumps(move_data)
+                        self.client.send(move)
                 except Exception as e:
                     print(f'Erro ao enviar para o servidor: {e}')
                     self.client.close()
@@ -209,6 +212,7 @@ class RestaUm:
         self.start_client()
         run = True
         while run:
+            pygame.event.pump()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
@@ -216,22 +220,27 @@ class RestaUm:
                     col = event.pos[0] // self.CELL_SIZE
                     row = event.pos[1] // self.CELL_SIZE
 
-                    # Movimentos
-                    if 0 <= row < self.ROW_COUNT and 0 <= col < self.COL_COUNT:  # A peça está dentro dos limites do tabuleiro
-                        if self.selected_ball is None and self.board[row][col] == 1:  # A peça selecionada é válida
-                            self.selected_ball = (row, col)
-                        elif self.selected_ball is not None and self.board[row][col] == 1:  # Uma peça já está selecionada
-                            self.selected_ball = (row, col)
-                        elif self.selected_ball is not None and self.board[row][col] == 0:  # Faz o movimento, verifica se uma peça está selecionada e se o espaço está vazio
-                            src_row, src_col = self.selected_ball
+                    if self.is_local_turn == True: #Se for a vez do cliente
+                        print("Sua vez")
+                        # Movimentos
+                        if 0 <= row < self.ROW_COUNT and 0 <= col < self.COL_COUNT:
+                            if self.selected_ball is None and self.board[row][col] == 1:
+                                self.selected_ball = (row, col)
+                            elif self.selected_ball is not None and self.board[row][col] == 1:
+                                self.selected_ball = (row, col)
+                            elif self.selected_ball is not None and self.board[row][col] == 0:
+                                src_row, src_col = self.selected_ball
+                                self.valid_move(src_row, src_col, row, col)
+                                self.send_movement = src_row, src_col, row, col
+                                self.is_local_turn = False
 
-                            self.valid_move(src_row, src_col, row, col)
-                            self.send_movement = src_row, src_col, row, col
-
-            if self.is_local_turn:
-                # (Chama self_updateBoard com as jogadas recebidas do servidor)
-                received_moves
-                self.updateBoard(received_moves)
+                    else:
+                        while(self.is_local_turn == False):
+                            text = self.font.render(f"Aguarde Sua vez {self.nickname}", True, self.BLACK)
+                            self.screen.blit(text, (self.BOARD_WIDTH + 10, self.HEIGHT // 2 - text.get_height() // 2))
+                            pygame.display.flip()
+                            received_moves = []
+                            self.updateBoard(received_moves)
 
             self.draw_board()
             self.draw_grid()
@@ -239,11 +248,9 @@ class RestaUm:
 
             # FIM DE JOGO
             if not self.check_available_moves():
-                # Adiciona bloco de texto à direita
-                text = self.font.render(f"Game Over Player{self.current_player}", True, self.BLACK)
+                text = self.font.render(f"Game Over Player {self.nickname}", True, self.BLACK)
                 self.screen.blit(text, (self.BOARD_WIDTH + 10, self.HEIGHT // 2 - text.get_height() // 2))
 
-            # Atualiza a tela
             pygame.display.flip()
 
             self.clock.tick(self.FPS)

@@ -20,16 +20,19 @@ def get_local_addrees():
 
 ip, port = get_local_addrees()
 
+port = 55555
+
 print(ip)
 print(port)
 
-
+first_client_connected = False
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((ip, port))
     server.listen()
 
     clients = []
+
     nicknames = []
 
     def broadcast(message):
@@ -39,7 +42,7 @@ def start_server():
     def handle(client):
         while (True):
             try:
-                message = client.recv(2048)
+                message = client.recv(4096)
                 broadcast(message)
             except:
                 index = clients.index(client)
@@ -51,19 +54,25 @@ def start_server():
                 break
 
     def receive():
+        global first_client_connected
         while True:
             client, address = server.accept()
+
+            if not first_client_connected:
+                first_client_connected = True
+                print("O primeiro cliente conectou.")
+                client.send(b'FIRST_CLIENT')
+
             print("Conectado com " + str(address))
 
-            client.send("NOME".encode('utf-8'))
-            nickname = client.recv(1024).decode('utf-8')
+            client.send(b"MOVE")
+            nickname = client.recv(4096)
             nicknames.append(nickname)
             clients.append(client)
 
             print("Nome do Cliente: " + str(nickname))
 
             broadcast(f'{nickname} Entrou na Partida\n'.encode('utf-8'))
-            client.send('**Conectado com servidor**'.encode('utf-8'))
 
             thread = threading.Thread(target=handle, args=(client,))
             thread.start()
