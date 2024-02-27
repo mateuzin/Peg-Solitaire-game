@@ -175,6 +175,7 @@ class RestaUm:
                             self.turn_event.set()
                         case default:
                             move_data = pickle.loads(move)
+                            print(f"MOVE DATA{move_data}")
                             src_row = move_data['src_row']
                             src_col = move_data['src_col']
                             row = move_data['row']
@@ -199,7 +200,11 @@ class RestaUm:
                             'col': self.send_movement[3],
                         }
                         move = pickle.dumps(move_data)
+                        print(f"\nMOVE DENTRO DO WRITE: {move}")
                         self.client.send(move)
+                        self.send_movement = None
+                    else:
+                        print(f"ELSE: {self.send_movement}")
                 except Exception as e:
                     print(f'Erro ao enviar para o servidor: {e}')
                     self.client.close()
@@ -235,6 +240,7 @@ class RestaUm:
                                 src_row, src_col = self.selected_ball
                                 self.valid_move(src_row, src_col, row, col)
                                 self.send_movement = src_row, src_col, row, col
+                                print(self.send_movement)
                                 self.is_local_turn = False
 
                     else:

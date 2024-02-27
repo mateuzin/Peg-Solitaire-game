@@ -38,7 +38,7 @@ def start_server():
 
     def broadcast(message, sender=None):
         for client in clients:
-            if client != sender and client.fileno() != -1:
+            if client != sender:
                 try:
                     client.send(message)
                 except:
@@ -48,6 +48,7 @@ def start_server():
         while True:
             try:
                 message = client.recv(4096)
+                #print(f"message server do {nickname}:{message}")
                 if not message:
                     break
                 broadcast(message, client)
