@@ -46,6 +46,7 @@ class RestaUm:
         self.port = 55555
         self.nickname = "Andre"
         self.client = None
+        self.turn_event = threading.Event()
 
     def draw_board(self):
         # Desenha o tabuleiro
@@ -114,8 +115,6 @@ class RestaUm:
 
             self.selected_ball = None
 
-            # Troca para o turno do outro jogador
-            self.current_player = self.PLAYER_2 if self.current_player == self.PLAYER_1 else self.PLAYER_1
 
     def updateBoard(self, received_moves):
         # Atualiza o tabuleiro com as jogadas recebidas do servidor
@@ -164,18 +163,22 @@ class RestaUm:
                 try:
                     move = self.client.recv(4096)
                     match move:
-                        case b'FIRST_CLIENT':
-                            print("Você é o primeiro cliente. is_local_turn definido como True.")
+                        case b'FIRST_CLIENTMOVE':
+                            print("Você é o primeiro cliente. Aguarde a jogada do outro jogador.")
                             self.is_local_turn = True
-                            print(self.is_local_turn)
+                            self.turn_event.set()
+                            self.client.send(self.nickname.encode('utf-8'))
                         case b'MOVE':
                             self.client.send(self.nickname.encode('utf-8'))
-                        case _:
+                            print(f"{self.nickname}, é a sua vez de jogar.")
+                            self.is_local_turn = True
+                            self.turn_event.set()
+                        case default:
                             move_data = pickle.loads(move)
-                            src_col = move_data['src_col']
                             src_row = move_data['src_row']
-                            col = move_data['col']
+                            src_col = move_data['src_col']
                             row = move_data['row']
+                            col = move_data['col']
 
                             received_moves = [(src_row, src_col, row, col)]
                             self.updateBoard(received_moves)
@@ -190,10 +193,10 @@ class RestaUm:
                 try:
                     if self.send_movement is not None:
                         move_data = {
-                            'src_col': self.send_movement[0],
-                            'src_row': self.send_movement[1],
-                            'col': self.send_movement[2],
-                            'row': self.send_movement[3],
+                            'src_row': self.send_movement[0],
+                            'src_col': self.send_movement[1],
+                            'row': self.send_movement[2],
+                            'col': self.send_movement[3],
                         }
                         move = pickle.dumps(move_data)
                         self.client.send(move)
@@ -235,12 +238,14 @@ class RestaUm:
                                 self.is_local_turn = False
 
                     else:
-                        while(self.is_local_turn == False):
-                            text = self.font.render(f"Aguarde Sua vez {self.nickname}", True, self.BLACK)
-                            self.screen.blit(text, (self.BOARD_WIDTH + 10, self.HEIGHT // 2 - text.get_height() // 2))
-                            pygame.display.flip()
-                            received_moves = []
-                            self.updateBoard(received_moves)
+                        self.turn_event.wait()
+                        self.turn_event.clear()
+
+                        text = self.font.render(f"Sua vez, {self.nickname}", True, self.BLACK)
+                        self.screen.blit(text, (self.BOARD_WIDTH + 10, self.HEIGHT // 2 - text.get_height() // 2))
+                        pygame.display.flip()
+                        received_moves = []
+                        self.updateBoard(received_moves)
 
             self.draw_board()
             self.draw_grid()

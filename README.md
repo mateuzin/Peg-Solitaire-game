@@ -13,8 +13,9 @@ Clone the Repository:
 bash
 Copy code
 git clone https://github.com/mateuzin/Peg-Solitaire-game
-cd repo-name
-Run the Server:
+cd Peg-Solitaire-game
+Run the Server: python ServerMenu.py
+Run the Game/Client python Cliente_game.py
 
 bash
 Copy code
