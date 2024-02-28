@@ -3,6 +3,7 @@ import sys
 import threading
 import socket
 import pickle
+import time
 
 class RestaUm:
     def __init__(self):
@@ -19,6 +20,7 @@ class RestaUm:
         self.selected_ball = None
         self.is_local_turn = False
         self.send_movement = None
+        self.current_local_play = None
 
         # Cores e imagens
         self.BLACK = (0, 0, 0)
@@ -42,6 +44,7 @@ class RestaUm:
             [-1, -1, 1, 1, 1, -1, -1],
         ]
 
+        #SOCKET e Thread
         self.ip = "192.168.15.100"
         self.port = 55555
         self.nickname = "Andre"
@@ -174,8 +177,9 @@ class RestaUm:
                             self.is_local_turn = True
                             self.turn_event.set()
                         case default:
+                            time.sleep(0.4)
                             move_data = pickle.loads(move)
-                            print(f"MOVE DATA{move_data}")
+                            #print(f"MOVE DATA{move_data}")#DEBUG
                             src_row = move_data['src_row']
                             src_col = move_data['src_col']
                             row = move_data['row']
@@ -183,6 +187,8 @@ class RestaUm:
 
                             received_moves = [(src_row, src_col, row, col)]
                             self.updateBoard(received_moves)
+                            if self.current_local_play != received_moves:
+                                self.is_local_turn = True
 
                 except Exception as e:
                     print(f'Erro ao receber do servidor: {e}')
@@ -200,11 +206,9 @@ class RestaUm:
                             'col': self.send_movement[3],
                         }
                         move = pickle.dumps(move_data)
-                        print(f"\nMOVE DENTRO DO WRITE: {move}")
+                        #print(f"\nMOVE DENTRO DO WRITE: {move}")#DEBUG
                         self.client.send(move)
                         self.send_movement = None
-                    else:
-                        print(f"ELSE: {self.send_movement}")
                 except Exception as e:
                     print(f'Erro ao enviar para o servidor: {e}')
                     self.client.close()
@@ -220,6 +224,7 @@ class RestaUm:
         self.start_client()
         run = True
         while run:
+            #print(f"VEZ DO JOGADOR{self.is_local_turn}")#DEBUG
             pygame.event.pump()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -240,8 +245,9 @@ class RestaUm:
                                 src_row, src_col = self.selected_ball
                                 self.valid_move(src_row, src_col, row, col)
                                 self.send_movement = src_row, src_col, row, col
+                                self.current_local_play = src_row, src_col, row, col
                                 print(self.send_movement)
-                                self.is_local_turn = False
+                                self.is_local_turn = False #FEZ A JOGADA MUDA TURNO PARA FALSE
 
                     else:
                         self.turn_event.wait()
