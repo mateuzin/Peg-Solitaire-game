@@ -5,12 +5,12 @@ import socket
 import pickle
 import time
 
-class RestaUm:
+class Game_Client:
     def __init__(self):
         pygame.init()
 
         # Constantes
-        self.WIDTH, self.HEIGHT = 1000, 600
+        self.WIDTH, self.HEIGHT = 600, 700
         self.BOARD_WIDTH = 605  # Largura do tabuleiro
         self.ROW_COUNT, self.COL_COUNT = 7, 7
         self.CELL_SIZE = self.BOARD_WIDTH // self.COL_COUNT
@@ -151,7 +151,7 @@ class RestaUm:
         for i in range(self.ROW_COUNT):
             pygame.draw.line(self.screen, self.DARK_GREEN, (0, i * self.CELL_SIZE), (self.BOARD_WIDTH - 10, i * self.CELL_SIZE))
         for j in range(self.COL_COUNT):
-            pygame.draw.line(self.screen, self.DARK_GREEN, (j * self.CELL_SIZE - 1, 0), (j * self.CELL_SIZE, self.BOARD_WIDTH))
+            pygame.draw.line(self.screen, self.DARK_GREEN, (j * self.CELL_SIZE - 1, 0), (j * self.CELL_SIZE, self.BOARD_WIDTH-10))
 
     def start_client(self):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -276,6 +276,6 @@ class RestaUm:
 
 
 if __name__ == "__main__":
-    game = RestaUm()
+    game = Game_Client()
     game.run()
 
