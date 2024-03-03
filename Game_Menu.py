@@ -34,9 +34,9 @@ def login(Erro=None):
     if Erro == True:
         menu.add.label('IP ou Porta incorretos, verifique com o servidor', font_size=15, margin=(0, 0), font_color=(255, 0, 0))
 
-    ip_entry = menu.add.text_input('IP: ', default="", maxchar=15, )
-    port_entry = menu.add.text_input('Porta: ', default="", maxchar=6, input_type=pygame_menu.locals.INPUT_INT)
-    nickname_entry = menu.add.text_input('Nome: ', default="", maxchar=15)
+    ip_entry = menu.add.text_input('IP: ', default="192.168.15.100", maxchar=15, ) #retirar default
+    port_entry = menu.add.text_input('Porta: ', default=55555, maxchar=6, input_type=pygame_menu.locals.INPUT_INT)
+    nickname_entry = menu.add.text_input('Nome: ', default="a", maxchar=15)
 
     menu.add.button('Iniciar', connect_button_clicked)
     menu.add.button('Voltar para Menu', main)
@@ -63,8 +63,9 @@ def start_client(ip, port, nickname):
             pygame.init()
 
             # Constantes
-            self.WIDTH, self.HEIGHT = 600, 600
-            self.BOARD_WIDTH = 605  # Largura do tabuleiro
+            self.WIDTH, self.HEIGHT = 1000, 600
+            self.BOARD_WIDTH = 600  # Largura do tabuleiro
+            self.chat_width, self.chat_height = 400, 600
             self.ROW_COUNT, self.COL_COUNT = 7, 7
             self.CELL_SIZE = self.BOARD_WIDTH // self.COL_COUNT
             self.FPS = 60
@@ -74,12 +75,14 @@ def start_client(ip, port, nickname):
             self.is_local_turn = False
             self.send_movement = None
             self.current_local_play = None
+            self.second_player = True #Alterar depois
 
             # Cores e imagens
             self.BLACK = (0, 0, 0)
             self.LIGHT_GREEN = (222, 252, 221)
             self.DARK_GREEN = (14, 36, 23)
-            self.font = pygame.font.Font(None, 80)
+            self.font_size1 = pygame.font.Font(None, 80)
+            self.font_size2 = pygame.font.Font(None, 15)
 
             # Inicializa a tela
             self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
@@ -101,17 +104,22 @@ def start_client(ip, port, nickname):
             self.ip = ip
             self.port = port
             self.nickname = nickname
+            self.chat_messages = []
             self.client = None
             self.turn_event = threading.Event()
+            self.chat_input = ""
 
         def draw_board(self):
             # Desenha o tabuleiro
-            self.screen.fill(self.LIGHT_GREEN)
+            board_surface = pygame.Surface((self.BOARD_WIDTH, self.BOARD_WIDTH))
+            board_surface.fill(self.LIGHT_GREEN)
+
             for row in range(self.ROW_COUNT):
                 for col in range(self.COL_COUNT):
+                    pygame.draw.rect(board_surface, self.DARK_GREEN, (col * self.CELL_SIZE, row * self.CELL_SIZE, self.CELL_SIZE, self.CELL_SIZE), 1)
                     if self.board[row][col] == 1:
                         pygame.draw.circle(
-                            self.screen,
+                            board_surface,
                             self.DARK_GREEN,
                             (col * self.CELL_SIZE + self.CELL_SIZE // 2, row * self.CELL_SIZE + self.CELL_SIZE // 2),
                             self.CELL_SIZE // 3,
@@ -129,17 +137,37 @@ def start_client(ip, port, nickname):
                             )
                     ):
                         pygame.draw.circle(
-                            self.screen,
+                            board_surface,
                             (128, 128, 128),
                             (col * self.CELL_SIZE + self.CELL_SIZE // 2, row * self.CELL_SIZE + self.CELL_SIZE // 2),
                             self.CELL_SIZE // 3,
                         )
                     elif self.board[row][col] == -1:
                         pygame.draw.rect(
-                            self.screen,
+                            board_surface,
                             self.DARK_GREEN,
                             (col * self.CELL_SIZE, row * self.CELL_SIZE, self.CELL_SIZE, self.CELL_SIZE),
                         )
+
+            self.screen.blit(board_surface, (0, 0))
+
+        def draw_chat(self):
+            # Desenha o chat
+            chat_surface = pygame.Surface((self.chat_width, self.chat_height))
+            chat_surface.fill(self.LIGHT_GREEN)
+            input_rect = pygame.draw.rect(
+                chat_surface,
+                self.DARK_GREEN,
+                (24, 556, 352, 32),
+            )
+
+            # Renderiza a entrada de chat
+            font = pygame.font.Font(None, 24)
+            text_surface = font.render(self.chat_input, True, self.LIGHT_GREEN)
+            chat_surface.blit(text_surface,
+                              (input_rect.x + 5, input_rect.y + 5))  # Ajuste a posição conforme necessário
+
+            self.screen.blit(chat_surface, (600, 0))
 
         def selected_piece(self):
             # Destaca a peça selecionada
@@ -216,16 +244,7 @@ def start_client(ip, port, nickname):
 
             return False  # Nenhum movimento disponível
 
-        def draw_grid(self):
-            # Desenha as linhas do grid
-            for i in range(self.ROW_COUNT):
-                pygame.draw.line(self.screen, self.DARK_GREEN, (0, i * self.CELL_SIZE),
-                                 (self.BOARD_WIDTH - 10, i * self.CELL_SIZE))
-            for j in range(self.COL_COUNT):
-                pygame.draw.line(self.screen, self.DARK_GREEN, (j * self.CELL_SIZE - 1, 0),
-                                 (j * self.CELL_SIZE, self.BOARD_WIDTH - 10))
-
-        def start_client(self):
+        def start_client_game(self):
             self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 self.client.connect((self.ip, self.port))
@@ -240,13 +259,13 @@ def start_client(ip, port, nickname):
                         move = self.client.recv(4096)
                         match move:
                             case b'FIRST_CLIENTMOVE':
-                                print("Você é o primeiro a jogar.")
+                                print("Você é o primeiro a jogar.")#debug
                                 self.is_local_turn = True
                                 self.turn_event.set()
                                 self.client.send(self.nickname.encode('utf-8'))
                             case b'MOVE':
                                 self.client.send(self.nickname.encode('utf-8'))
-                                print(f"{self.nickname},aguarde o outro jogador.")
+                                print(f"{self.nickname},aguarde o outro jogador.")#debug
                             case default:
                                 time.sleep(0.4)
                                 move_data = pickle.loads(move)
@@ -277,9 +296,14 @@ def start_client(ip, port, nickname):
                                 'col': self.send_movement[3],
                             }
                             move = pickle.dumps(move_data)
-                            # print(f"\nMOVE DENTRO DO WRITE: {move}")#DEBUG
                             self.client.send(move)
                             self.send_movement = None
+
+                        if self.chat_messages:
+                            chat_data = {'message': self.chat_messages.pop(0)}
+                            chat_message = pickle.dumps(chat_data)
+                            self.client.send(chat_message)
+
                     except Exception as e:
                         print(f'Erro ao enviar para o servidor: {e}')
                         self.client.close()
@@ -291,9 +315,11 @@ def start_client(ip, port, nickname):
             write_thread = threading.Thread(target=write)
             write_thread.start()
 
+
         def run(self):
-            self.start_client()
+            self.start_client_game()
             run = True
+            active = False
             while run:
                 # print(f"VEZ DO JOGADOR{self.is_local_turn}")#DEBUG
                 pygame.event.pump()
@@ -304,37 +330,50 @@ def start_client(ip, port, nickname):
                     elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.is_local_turn == True:
                         col = event.pos[0] // self.CELL_SIZE
                         row = event.pos[1] // self.CELL_SIZE
-
-                        if self.is_local_turn == True:  # Se for a vez do cliente
-                            print("Sua vez")
-                            # Movimentos
-                            if 0 <= row < self.ROW_COUNT and 0 <= col < self.COL_COUNT:
-                                if self.selected_ball is None and self.board[row][col] == 1:
-                                    self.selected_ball = (row, col)
-                                elif self.selected_ball is not None and self.board[row][col] == 1:
-                                    self.selected_ball = (row, col)
-                                elif self.selected_ball is not None and self.board[row][col] == 0:
-                                    src_row, src_col = self.selected_ball
-                                    if self.valid_move(src_row, src_col, row, col):
-                                        self.send_movement = src_row, src_col, row, col
-                                        self.current_local_play = src_row, src_col, row, col
-                                        print(f"JOGADA FEITA: {self.send_movement}")  # debug
-                                        self.is_local_turn = False  # FEZ A JOGADA MUDA TURNO PARA FALSE
-                                else:
-                                    print("NÃO PODE")  # debug
+                        if self.second_player == False:
+                            print("aguarde")#debug
                         else:
-                            self.turn_event.wait()
-                            self.turn_event.clear()
-                            received_moves = []
-                            self.updateBoard(received_moves)
-
+                            if self.is_local_turn == True:  # Se for a vez do cliente
+                                print("Sua vez")
+                                # Movimentos
+                                if 0 <= row < self.ROW_COUNT and 0 <= col < self.COL_COUNT:
+                                    if self.selected_ball is None and self.board[row][col] == 1:
+                                        self.selected_ball = (row, col)
+                                    elif self.selected_ball is not None and self.board[row][col] == 1:
+                                        self.selected_ball = (row, col)
+                                    elif self.selected_ball is not None and self.board[row][col] == 0:
+                                        src_row, src_col = self.selected_ball
+                                        if self.valid_move(src_row, src_col, row, col):
+                                            self.send_movement = src_row, src_col, row, col
+                                            self.current_local_play = src_row, src_col, row, col
+                                            print(f"JOGADA FEITA: {self.send_movement}")  # debug
+                                            self.is_local_turn = False  # FEZ A JOGADA MUDA TURNO PARA FALSE
+                                    else:
+                                        print("NÃO PODE")  # debug
+                            else:
+                                self.turn_event.wait()
+                                self.turn_event.clear()
+                                received_moves = []
+                                self.updateBoard(received_moves)
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RETURN:
+                            # Enviar mensagem de chat
+                            message = self.chat_input
+                            print(message)
+                            if message:
+                                self.chat_messages.append(message)
+                                self.chat_input = ""
+                        elif event.key == pygame.K_BACKSPACE:
+                            self.chat_input = self.chat_input[:-1]
+                        else:
+                            self.chat_input += event.unicode
+                self.draw_chat()
                 self.draw_board()
-                self.draw_grid()
                 self.selected_piece()
 
                 # FIM DE JOGO
                 if not self.check_available_moves():
-                    text = self.font.render("Game Over Player", True, (255, 0, 0), self.BLACK, )
+                    text = self.font_size1.render("Game Over Player", True, (255, 0, 0), self.BLACK, )
                     self.screen.blit(text, (self.BOARD_WIDTH // 8, (self.HEIGHT // 2) - 30))
 
                 pygame.display.flip()
@@ -360,6 +399,7 @@ def start_server():
             self.server_state = "Ligar servidor"
             self.server_title_state = "OFF"
             self.on_off = self.start_server
+            self.running = True
 
             self.ip, self.port = self.get_local_address()
             self.port = 55555  # TESTE RETIRAR
@@ -381,7 +421,7 @@ def start_server():
                                                     )
             self.create_menu()
 
-            while True:
+            while self.running:
                 events = pygame.event.get()
                 for event in events:
                     if event.type == pygame.QUIT:
@@ -397,7 +437,6 @@ def start_server():
 
         def create_menu(self):
             self.menu = pygame_menu.Menu(f"SERVIDOR - {self.server_title_state}", 400, 510, theme=self.mytheme)
-
             self.menu.add.label(f'IP: {self.ip}', font_size=30, margin=(0, 0), font_color=self.font_color)
             self.menu.add.label(f'PORTA: {self.port}', font_size=30, margin=(0, 0), font_color=self.font_color)
             self.menu.add.button(self.server_state, self.on_off)
@@ -427,23 +466,29 @@ def start_server():
                         continue
 
         def handle(self, client, nickname):
-            while True:
+            while self.running:
                 try:
                     message = client.recv(4096)
                     if not message:
                         break
+
+                    # Verifique se é uma mensagem de chat
+                    try:
+                        message_data = pickle.loads(message)
+                        if 'message' in message_data:
+                            chat_message = f'{nickname}: {message_data["message"]}'
+                            self.broadcast(chat_message.encode('utf-8'), client)
+                            continue
+                    except pickle.UnpicklingError:
+                        pass
+
+                    # Trate como movimento caso não seja uma mensagem de chat
                     self.broadcast(message, client)
                 except:
                     break
 
-            index = self.clients.index(client)
-            self.clients.remove(client)
-            client.close()
-            nickname = self.nicknames[index]
-            self.broadcast(f'{nickname} saiu do jogo.'.encode('utf-8'))
-
         def receive(self):
-            while True:
+            while self.running:
                 client, address = self.server.accept()
 
                 if not self.first_client_connected:
@@ -481,6 +526,8 @@ def start_server():
             print("Servidor Ligado")
 
         def on_closing(self):
+            self.running = False
+            self.server.close()
             Game_Server()
 
     if __name__ == "__main__":
