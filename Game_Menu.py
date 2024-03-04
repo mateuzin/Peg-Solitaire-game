@@ -56,7 +56,54 @@ def login(Erro=None):
         pygame.display.flip()
         clock.tick(30)
 
+def end(status = None):
+    class EndScreen:
+        def __init__(self):
+            self.font_color = (128, 128, 128)
+            self.seconds = 5
 
+            pygame.init()
+            clock = pygame.time.Clock()
+
+            screen = pygame.display.set_mode((300, 200))
+            pygame.display.set_caption('')
+
+            self.mytheme = pygame_menu.themes.Theme(background_color=(0, 0, 0, 0),
+                                                    title_background_color=(14, 36, 23),
+                                                    title_font_shadow=True,
+                                                    widget_padding=5,
+                                                    )
+
+            self.menu = pygame_menu.Menu(f"", 300, 200, theme=self.mytheme)
+            self.menu.add.label(status, font_size=30, margin=(0, 0), font_color=(255, 0, 0))
+            label = self.menu.add.label(f'Encerrando: {self.seconds}', font_size=30, margin=(0, 0), font_color=self.font_color)
+
+            pygame.display.flip()  # Atualiza a tela antes da contagem regressiva
+
+            while self.seconds > 0:
+                events = pygame.event.get()
+                for e in events:
+                    if e.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+
+                screen.fill((14, 36, 23))
+                self.menu.update(events)
+                self.menu.draw(screen)
+                pygame.display.flip()
+                clock.tick(1)
+                self.seconds -= 1
+                label.set_title(f'Encerrando: {self.seconds}')
+
+            # Adiciona a mensagem após a contagem regressiva
+            self.menu.draw(screen)
+            pygame.display.flip()
+
+            pygame.quit()
+            sys.exit()
+
+    if __name__ == "__main__":
+        end_screen = EndScreen()
 def start_client(ip, port, nickname):
     class Game_Client:
         def __init__(self):
@@ -105,6 +152,7 @@ def start_client(ip, port, nickname):
             self.port = port
             self.nickname = nickname
             self.chat_messages = []
+            self.chat_messages_print = []
             self.client = None
             self.turn_event = threading.Event()
             self.chat_input = ""
@@ -155,19 +203,67 @@ def start_client(ip, port, nickname):
             # Desenha o chat
             chat_surface = pygame.Surface((self.chat_width, self.chat_height))
             chat_surface.fill(self.LIGHT_GREEN)
+
             input_rect = pygame.draw.rect(
                 chat_surface,
                 self.DARK_GREEN,
                 (24, 556, 352, 32),
             )
 
+            pygame.draw.rect(
+                chat_surface,
+                self.BLACK,
+                (0, 50, self.chat_width - 5, self.chat_height - 114),
+            )
+
+            pygame.draw.rect(
+                chat_surface,
+                self.BLACK,
+                (0, 50, self.chat_width - 5, self.chat_height - 114),
+            )
+
             # Renderiza a entrada de chat
             font = pygame.font.Font(None, 24)
             text_surface = font.render(self.chat_input, True, self.LIGHT_GREEN)
-            chat_surface.blit(text_surface,
-                              (input_rect.x + 5, input_rect.y + 5))  # Ajuste a posição conforme necessário
+            chat_surface.blit(text_surface, (input_rect.x + 5, input_rect.y + 5))
+
+            y_offset = 60
+
+            for message in self.chat_messages_print:
+                text_surface2 = font.render(message, True, self.LIGHT_GREEN)
+                chat_surface.blit(text_surface2, (30, y_offset))
+                y_offset += 25
 
             self.screen.blit(chat_surface, (600, 0))
+
+            # Remova mensagens antigas se o limite for atingido
+            if len(self.chat_messages_print) > 19:
+                self.chat_messages_print.pop(0)
+
+        def draw_surrender_button(self):
+            self.quit_button_rect = pygame.Rect(880, 8, 100, 40)
+            # Desenha o botão para desistir
+            pygame.draw.rect(self.screen, self.DARK_GREEN, self.quit_button_rect)
+            font = pygame.font.Font(None, 30)
+            text_surface = font.render("Desistir", True, self.LIGHT_GREEN)
+            text_rect = text_surface.get_rect(center=self.quit_button_rect.center)
+            self.screen.blit(text_surface, text_rect)
+
+        def handle_surrender_button_click(self, pos):
+            # Verifica se o botão de desistir foi clicado
+            if self.quit_button_rect.collidepoint(pos):
+                # Implemente a lógica de desistência aqui
+                print("O jogador desistiu.")
+                end(f"{nickname} Desistiu")
+
+        def draw_status_message(self):
+            self.status_rect = pygame.Rect(700, 8, 100, 40)
+            status_message = "SUA VEZ" if self.is_local_turn else "AGUARDE SUA VEZ"
+            pygame.draw.rect(self.screen, self.LIGHT_GREEN, self.status_rect)
+            font = pygame.font.Font(None, 30)
+            text_surface = font.render(status_message, True, self.DARK_GREEN)
+            text_rect = text_surface.get_rect(center=self.status_rect.center)
+            self.screen.blit(text_surface, text_rect)
 
         def selected_piece(self):
             # Destaca a peça selecionada
@@ -257,28 +353,33 @@ def start_client(ip, port, nickname):
                 while True:
                     try:
                         move = self.client.recv(4096)
-                        match move:
-                            case b'FIRST_CLIENTMOVE':
-                                print("Você é o primeiro a jogar.")#debug
-                                self.is_local_turn = True
-                                self.turn_event.set()
-                                self.client.send(self.nickname.encode('utf-8'))
-                            case b'MOVE':
-                                self.client.send(self.nickname.encode('utf-8'))
-                                print(f"{self.nickname},aguarde o outro jogador.")#debug
-                            case default:
-                                time.sleep(0.4)
-                                move_data = pickle.loads(move)
-                                # print(f"MOVE DATA{move_data}")#DEBUG
-                                src_row = move_data['src_row']
-                                src_col = move_data['src_col']
-                                row = move_data['row']
-                                col = move_data['col']
 
-                                received_moves = [(src_row, src_col, row, col)]
-                                self.updateBoard(received_moves)
-                                if self.current_local_play != received_moves:
-                                    self.is_local_turn = True
+                        if move == b'FIRST_CLIENTMOVE':
+                            print("Você é o primeiro a jogar.")#debug
+                            self.is_local_turn = True
+                            self.turn_event.set()
+                            self.client.send(self.nickname.encode('utf-8'))
+                        elif move == b'MOVE':
+                            self.client.send(self.nickname.encode('utf-8'))
+                            print(f"{self.nickname},aguarde o outro jogador.")#debug
+                        elif move.startswith(b'3'):
+                            message = move[2:].decode()
+                            self.chat_messages_print.append(message)
+                            print(f"mensagem recebida:{message}")#debug
+
+                        else :
+                            time.sleep(0.4)
+                            move_data = pickle.loads(move)
+                            # print(f"MOVE DATA{move_data}")#DEBUG
+                            src_row = move_data['src_row']
+                            src_col = move_data['src_col']
+                            row = move_data['row']
+                            col = move_data['col']
+
+                            received_moves = [(src_row, src_col, row, col)]
+                            self.updateBoard(received_moves)
+                            if self.current_local_play != received_moves:
+                                self.is_local_turn = True
 
                     except Exception as e:
                         print(f'Erro ao receber do servidor: {e}')
@@ -319,7 +420,6 @@ def start_client(ip, port, nickname):
         def run(self):
             self.start_client_game()
             run = True
-            active = False
             while run:
                 # print(f"VEZ DO JOGADOR{self.is_local_turn}")#DEBUG
                 pygame.event.pump()
@@ -330,11 +430,11 @@ def start_client(ip, port, nickname):
                     elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.is_local_turn == True:
                         col = event.pos[0] // self.CELL_SIZE
                         row = event.pos[1] // self.CELL_SIZE
+                        self.handle_surrender_button_click(event.pos)
                         if self.second_player == False:
                             print("aguarde")#debug
                         else:
                             if self.is_local_turn == True:  # Se for a vez do cliente
-                                print("Sua vez")
                                 # Movimentos
                                 if 0 <= row < self.ROW_COUNT and 0 <= col < self.COL_COUNT:
                                     if self.selected_ball is None and self.board[row][col] == 1:
@@ -346,10 +446,10 @@ def start_client(ip, port, nickname):
                                         if self.valid_move(src_row, src_col, row, col):
                                             self.send_movement = src_row, src_col, row, col
                                             self.current_local_play = src_row, src_col, row, col
-                                            print(f"JOGADA FEITA: {self.send_movement}")  # debug
+                                            print(f"JOGADA FEITA: {self.send_movement}")  #debug
                                             self.is_local_turn = False  # FEZ A JOGADA MUDA TURNO PARA FALSE
                                     else:
-                                        print("NÃO PODE")  # debug
+                                        print("NÃO PODE")  #debug
                             else:
                                 self.turn_event.wait()
                                 self.turn_event.clear()
@@ -359,7 +459,8 @@ def start_client(ip, port, nickname):
                         if event.key == pygame.K_RETURN:
                             # Enviar mensagem de chat
                             message = self.chat_input
-                            print(message)
+                            self.chat_messages_print.append(f"Você: {self.chat_input}")
+                            print(message)#debug
                             if message:
                                 self.chat_messages.append(message)
                                 self.chat_input = ""
@@ -369,6 +470,8 @@ def start_client(ip, port, nickname):
                             self.chat_input += event.unicode
                 self.draw_chat()
                 self.draw_board()
+                self.draw_surrender_button()
+                self.draw_status_message()
                 self.selected_piece()
 
                 # FIM DE JOGO
@@ -411,7 +514,7 @@ def start_server():
             pygame.init()
             clock = pygame.time.Clock()
 
-            scree = pygame.display.set_mode((400, 510))
+            screen = pygame.display.set_mode((400, 510))
             pygame.display.set_caption('RESTA UM - MENU')
 
             self.mytheme = pygame_menu.themes.Theme(background_color=(0, 0, 0, 0),
@@ -429,8 +532,8 @@ def start_server():
                         sys.exit()
 
                 self.menu.update(events)
-                scree.fill((14, 36, 23))
-                self.menu.draw(scree)
+                screen.fill((14, 36, 23))
+                self.menu.draw(screen)
 
                 pygame.display.flip()
                 clock.tick(30)
@@ -457,11 +560,19 @@ def start_server():
                 s.close()
             return ip_local, port_local
 
-        def broadcast(self, message, sender=None):
+        def broadcast(self, message, sender=None, chat=False, nickname=None):
             for client in self.clients:
                 if client != sender:
                     try:
-                        client.send(message)
+                        if chat == True:
+                            try:
+                                client.sendall(('3' + nickname + ": " + message).encode('utf-8'))
+                                print(f"broadcast: {message}")  #debug
+                            except Exception as e:
+                                print(f"Error sending message: {e}")
+                        else:
+                            client.send(message)
+                            print(f"broadcast: {message}")#debug
                     except:
                         continue
 
@@ -475,13 +586,14 @@ def start_server():
                     # Verifique se é uma mensagem de chat
                     try:
                         message_data = pickle.loads(message)
+                        print(f"handle: {message_data}")#debug
                         if 'message' in message_data:
                             chat_message = f'{nickname}: {message_data["message"]}'
-                            self.broadcast(chat_message.encode('utf-8'), client)
+                            print(chat_message.encode('utf-8'))#debug
+                            self.broadcast(chat_message, client, True,nickname)
                             continue
                     except pickle.UnpicklingError:
                         pass
-
                     # Trate como movimento caso não seja uma mensagem de chat
                     self.broadcast(message, client)
                 except:
@@ -541,7 +653,7 @@ def main():
     surface = pygame.display.set_mode((350, 440))
     pygame.display.set_caption('RESTA UM - MENU')
 
-    mytheme = pygame_menu.themes.Theme(background_color=(0, 0, 0, 0),  # transparent background
+    mytheme = pygame_menu.themes.Theme(background_color=(0, 0, 0, 0),
                                        title_background_color=(14, 36, 23),
                                        cursor_selection_color=(222, 252, 221),
                                        title_font_shadow=True,
