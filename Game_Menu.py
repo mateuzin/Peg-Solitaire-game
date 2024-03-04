@@ -34,9 +34,9 @@ def login(Erro=None):
     if Erro == True:
         menu.add.label('IP ou Porta incorretos, verifique com o servidor', font_size=15, margin=(0, 0), font_color=(255, 0, 0))
 
-    ip_entry = menu.add.text_input('IP: ', default="192.168.15.100", maxchar=15, ) #retirar default
-    port_entry = menu.add.text_input('Porta: ', default=55555, maxchar=6, input_type=pygame_menu.locals.INPUT_INT)
-    nickname_entry = menu.add.text_input('Nome: ', default="a", maxchar=15)
+    ip_entry = menu.add.text_input('IP: ', default="", maxchar=15, ) #retirar default
+    port_entry = menu.add.text_input('Porta: ', default="", maxchar=6, input_type=pygame_menu.locals.INPUT_INT)
+    nickname_entry = menu.add.text_input('Nome: ', default="Exemplo", maxchar=15)
 
     menu.add.button('Iniciar', connect_button_clicked)
     menu.add.button('Voltar para Menu', main)
@@ -244,6 +244,7 @@ def start_client(ip, port, nickname):
             self.quit_button_rect = pygame.Rect(880, 8, 100, 40)
             # Desenha o botão para desistir
             pygame.draw.rect(self.screen, self.DARK_GREEN, self.quit_button_rect)
+
             font = pygame.font.Font(None, 30)
             text_surface = font.render("Desistir", True, self.LIGHT_GREEN)
             text_rect = text_surface.get_rect(center=self.quit_button_rect.center)
@@ -252,14 +253,22 @@ def start_client(ip, port, nickname):
         def handle_surrender_button_click(self, pos):
             # Verifica se o botão de desistir foi clicado
             if self.quit_button_rect.collidepoint(pos):
-                # Implemente a lógica de desistência aqui
                 print("O jogador desistiu.")
                 end(f"{nickname} Desistiu")
 
         def draw_status_message(self):
             self.status_rect = pygame.Rect(700, 8, 100, 40)
-            status_message = "SUA VEZ" if self.is_local_turn else "AGUARDE SUA VEZ"
+
+            if not self.second_player:
+                status_message = "AGUADANDO PLAYER 2"
+            elif self.second_player and self.is_local_turn:
+                status_message = "SUA VEZ"
+            else:
+                status_message = "AGUARDE SUA VEZ"
+
+
             pygame.draw.rect(self.screen, self.LIGHT_GREEN, self.status_rect)
+
             font = pygame.font.Font(None, 30)
             text_surface = font.render(status_message, True, self.DARK_GREEN)
             text_rect = text_surface.get_rect(center=self.status_rect.center)
@@ -361,6 +370,7 @@ def start_client(ip, port, nickname):
                             self.client.send(self.nickname.encode('utf-8'))
                         elif move == b'MOVE':
                             self.client.send(self.nickname.encode('utf-8'))
+                            self.second_player = True
                             print(f"{self.nickname},aguarde o outro jogador.")#debug
                         elif move.startswith(b'3'):
                             message = move[2:].decode()
@@ -498,14 +508,11 @@ def start_server():
             self.second_client_connected = False
             self.clients = []
             self.nicknames = []
-            self.font_color = (128, 128, 128)
-            self.server_state = "Ligar servidor"
-            self.server_title_state = "OFF"
             self.on_off = self.start_server
             self.running = True
 
             self.ip, self.port = self.get_local_address()
-            self.port = 55555  # TESTE RETIRAR
+           # self.port = 55555  # TESTE RETIRAR
 
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.bind((self.ip, self.port))
@@ -538,12 +545,13 @@ def start_server():
                 pygame.display.flip()
                 clock.tick(30)
 
-        def create_menu(self):
-            self.menu = pygame_menu.Menu(f"SERVIDOR - {self.server_title_state}", 400, 510, theme=self.mytheme)
-            self.menu.add.label(f'IP: {self.ip}', font_size=30, margin=(0, 0), font_color=self.font_color)
-            self.menu.add.label(f'PORTA: {self.port}', font_size=30, margin=(0, 0), font_color=self.font_color)
-            self.menu.add.button(self.server_state, self.on_off)
-            self.menu.add.button('Voltar para Menu', main)
+        def create_menu(self,server_title_state="OFF", font_color=(128, 128, 128),server_state="Ligar servidor", return_to_menu=True):
+            self.menu = pygame_menu.Menu(f"SERVIDOR - {server_title_state}", 400, 510, theme=self.mytheme)
+            self.menu.add.label(f'IP: {self.ip}', font_size=30, margin=(0, 0), font_color=font_color)
+            self.menu.add.label(f'PORTA: {self.port}', font_size=30, margin=(0, 0), font_color=font_color)
+            self.menu.add.button(server_state, self.on_off)
+            if return_to_menu:
+                self.menu.add.button('Voltar para Menu', main)
             self.menu.add.button('Sair', pygame_menu.events.EXIT)
 
         @staticmethod
@@ -627,12 +635,9 @@ def start_server():
                 thread.start()
 
         def start_server(self):
-            self.font_color = (136, 236, 36)
-            self.server_state = "Desligar servidor"
-            self.server_title_state = "ON"
             self.on_off = self.on_closing
             self.menu.disable()
-            self.create_menu()
+            self.create_menu("ON",(136, 236, 36),"Desligar servidor",False)
             receive_thread = threading.Thread(target=self.receive)
             receive_thread.start()
             print("Servidor Ligado")

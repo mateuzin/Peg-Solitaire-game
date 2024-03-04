@@ -1,27 +1,9 @@
-This repository contains a Python implementation of the classic "Peg solitaire" game, developed as part of a project for the Parallel and Distributed Programming course. The game utilizes socket programming for client-server communication, allowing multiple players to engage in a distributed gaming environment.
+## Resta Um 
 
-Features:
-Socket Communication: The game is built on a client-server architecture using Python sockets for communication between players and the game server.
+Implementação do jogo Resta um em Python com comunicação socket e interface gráfica.
 
-Pygame Graphics: Visual representation of the game is powered by the Pygame library, providing an interactive and engaging gaming experience.
+## Resumo
+Resta um é um quebra-cabeça no qual o objetivo é, por meio de movimentos válidos, deixar apenas uma peça no tabuleiro.
 
-Parallel and Distributed Concepts: This project explores the concepts of parallelism and distribution, demonstrating their application in a multiplayer game setting.
+No início do jogo, há 32 peças no tabuleiro, deixando vazia a posição central. Um movimento consiste em pegar uma peça e fazê-la "saltar" sobre outra peça, sempre na horizontal ou na vertical, terminando em um espaço vazio. A peça que foi "saltada" é retirada do tabuleiro. O jogo termina quando não é mais possível fazer nenhum outro movimento. Nesta ocasião, o jogador ganha se restar apenas uma peça no tabuleiro.
 
-How to Play:
-Clone the Repository:
-
-bash
-Copy code
-git clone https://github.com/mateuzin/Peg-Solitaire-game
-cd Peg-Solitaire-game
-Run the Server: python ServerMenu.py
-Run the Game/Client python Cliente_game.py
-
-bash
-Copy code
-python server.py
-Run the Clients:
-
-bash
-Copy code
-python client.py
